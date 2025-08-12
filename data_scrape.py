@@ -18,6 +18,9 @@ load_dotenv()
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 gemini_api = os.getenv("gemini_api")
 gemini_api_2 = os.getenv("gemini_api_2")
+anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+horizon_api = os.getenv("horizon_api")
+
 
 async def ping_gemini(question_text, relevant_context="", max_tries=3):
     tries = 0
@@ -71,6 +74,53 @@ async def ping_gemini(question_text, relevant_context="", max_tries=3):
             print(f"Error during Gemini call: {e}")
             tries += 1
     return {"error": "Gemini failed after max retries"}
+
+async def ping_claude(question_text, relevant_context="", max_tries=3):
+    tries = 0
+    while tries < max_tries:
+        try:
+            print(f"claude is running {tries + 1} try")
+            
+            # Check if API key is available
+            anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not anthropic_api_key:
+                print("❌ Claude API key not found in environment variables")
+                return {"error": "Claude API key not configured"}
+            
+            headers = {
+                "x-api-key": anthropic_api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            }
+            payload = {
+                "model": "claude-3-5-sonnet-20241022",
+                "max_tokens": 4096,
+                "messages": [
+                    {"role": "user", "content": f"{relevant_context}\n\n{question_text}" if relevant_context else question_text}
+                ]
+            }
+            
+            async with httpx.AsyncClient(timeout=60) as client:
+                response = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers=headers,
+                    json=payload
+                )
+                response.raise_for_status()
+                
+                # Debug: Print response content
+                response_data = response.json()
+                print(f"Claude response received")
+                
+                if not response_data.get('content'):
+                    raise Exception("Empty response from Claude API")
+                
+                return response_data
+                    
+        except Exception as e:
+            print(f"Error during Claude call: {e}")
+            tries += 1
+    return {"error": "Claude failed after max retries"}
 
 class NumericFieldFormatter:
     """Handles identification and cleaning of numeric fields in DataFrames"""
@@ -167,23 +217,23 @@ class NumericFieldFormatter:
         - ["Active", "Inactive"] → status
         """
         
-        response = await ping_gemini(identification_prompt, "You are a data analysis expert specializing in numeric data identification. Return only valid JSON.")
+        response = await ping_claude(identification_prompt, "You are a data analysis expert specializing in numeric data identification. Return only valid JSON.")
         
         try:
             # Check if response has error
             if "error" in response:
-                print(f"❌ Gemini API error: {response['error']}")
+                print(f"❌ Claude API error: {response['error']}")
                 print("🔄 Falling back to heuristic identification...")
                 return self._fallback_numeric_identification(df)
             
             # Extract text from response
-            if "candidates" not in response or not response["candidates"]:
-                print("❌ No candidates in Gemini response")
+            if not response.get("content") or not response["content"]:
+                print("❌ No content in Claude response")
                 print("🔄 Falling back to heuristic identification...")
                 return self._fallback_numeric_identification(df)
             
-            response_text = response["candidates"][0]["content"]["parts"][0]["text"]
-            print(f"Gemini response text length: {len(response_text)}")
+            response_text = response["content"][0]["text"]
+            print(f"Claude response text length: {len(response_text)}")
             
             # Try to extract JSON from response (sometimes it's wrapped in markdown)
             if "```json" in response_text:
@@ -202,10 +252,10 @@ class NumericFieldFormatter:
                 if col not in datetime_columns and info.get("is_numeric", False):
                     filtered_analysis[col] = info
             
-            print(f"✅ LLM identified {len(filtered_analysis)} numeric columns: {list(filtered_analysis.keys())}")
+            print(f"✅ Claude identified {len(filtered_analysis)} numeric columns: {list(filtered_analysis.keys())}")
             return filtered_analysis
         except Exception as e:
-            print(f"❌ Error in Gemini numeric analysis: {e}")
+            print(f"❌ Error in Claude numeric analysis: {e}")
             print("🔄 Falling back to heuristic identification...")
             # Fallback to existing heuristic method
             return self._fallback_numeric_identification(df)
@@ -534,7 +584,7 @@ class NumericFieldFormatter:
             "formatted_columns": [],
             "errors": [],
             "column_info": numeric_columns,
-            "identification_method": "llm_gemini"
+            "identification_method": "llm_claude"
         }
         
         # Clean each numeric column
@@ -717,7 +767,7 @@ class WebScraper:
         Be specific about CSS selectors and patterns you observe.
         """
         
-        response = await ping_gemini(
+        response = await ping_claude(
             analysis_prompt, 
             "You are an HTML parsing expert. Analyze the structure and provide specific extraction guidance. Return only valid JSON."
         )
@@ -727,7 +777,7 @@ class WebScraper:
                 print(f"❌ LLM analysis failed: {response['error']}")
                 return self._fallback_analysis(html_content)
             
-            response_text = response["candidates"][0]["content"]["parts"][0]["text"]
+            response_text =response["content"][0]["text"]
             
             # Clean JSON from markdown if present
             if "```json" in response_text:
@@ -850,10 +900,10 @@ class WebScraper:
         """
         
         try:
-            response = await ping_gemini(selection_prompt, "You are a data analysis expert. Select the most relevant table. Return only valid JSON.")
+            response = await ping_claude(selection_prompt, "You are a data analysis expert. Select the most relevant table. Return only valid JSON.")
             
-            if "error" not in response and "candidates" in response:
-                response_text = response["candidates"][0]["content"]["parts"][0]["text"]
+            if "error" not in response and response.get("content"):
+                response_text = response["content"][0]["text"]
                 
                 # Clean JSON
                 if "```json" in response_text:
@@ -1441,17 +1491,17 @@ class WebScraper:
         Be specific about CSS selectors and patterns you observe.
         """
         
-        response = await ping_gemini(
+        response = await ping_claude(
             analysis_prompt, 
             "You are an HTML parsing expert. Analyze the structure and provide specific extraction guidance. Return only valid JSON."
         )
         
         try:
             if "error" in response:
-                print(f"❌ LLM analysis failed: {response['error']}")
+                print(f"❌ Claude analysis failed: {response['error']}")
                 return self._fallback_analysis(html_content)
             
-            response_text = response["candidates"][0]["content"]["parts"][0]["text"]
+            response_text = response["content"][0]["text"]
             
             # Clean JSON from markdown if present
             if "```json" in response_text:
@@ -1572,10 +1622,10 @@ class WebScraper:
         """
         
         try:
-            response = await ping_gemini(selection_prompt, "You are a data analysis expert. Select the most relevant table. Return only valid JSON.")
+            response = await ping_claude(selection_prompt, "You are a data analysis expert. Select the most relevant table. Return only valid JSON.")
             
-            if "error" not in response and "candidates" in response:
-                response_text = response["candidates"][0]["content"]["parts"][0]["text"]
+            if "error" not in response and response.get("content"):
+                response_text = response["content"][0]["text"]
                 
                 # Clean JSON
                 if "```json" in response_text:
@@ -1587,11 +1637,11 @@ class WebScraper:
                 selected_idx = selection.get("selected_table_index", 0)
                 
                 if 0 <= selected_idx < len(tables):
-                    print(f"✅ LLM selected table {selected_idx}: {selection.get('reason', 'No reason given')}")
+                    print(f"✅ Claude selected table {selected_idx}: {selection.get('reason', 'No reason given')}")
                     return tables[selected_idx]
         
         except Exception as e:
-            print(f"❌ LLM table selection failed: {e}")
+            print(f"❌ Claude table selection failed: {e}")
         
         # Fallback: select largest table with most columns
         return max(tables, key=lambda x: len(x) * len(x.columns))
