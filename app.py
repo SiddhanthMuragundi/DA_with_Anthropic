@@ -469,21 +469,21 @@ async def extract_all_urls_and_databases(question_text: str) -> dict:
     Be very selective - only extract what is actually needed and usable.
     """
     
-    response = await ping_gemini(extraction_prompt, "You are a data source extraction expert. Return only valid JSON.")
+    response = await ping_claude(extraction_prompt, "You are a data source extraction expert. Return only valid JSON.")
     try:
         # Check if response has error
         if "error" in response:
-            print(f"❌ Gemini API error: {response['error']}")
+            print(f"❌ Claude API error: {response['error']}")
             return extract_urls_with_regex(question_text)
-        
+                
         # Extract text from response
-        if "candidates" not in response or not response["candidates"]:
-            print("❌ No candidates in Gemini response")
+        if not hasattr(response, 'content') or not response.content:
+            print("❌ No content in Claude response")
             return extract_urls_with_regex(question_text)
-        
-        response_text = response["candidates"][0]["content"]["parts"][0]["text"]
+                
+        response_text = response.content[0].text
         print(f"Raw response text: {response_text}")
-        
+                
         # Try to extract JSON from response (sometimes it's wrapped in markdown)
         if "```json" in response_text:
             json_start = response_text.find("```json") + 7
@@ -493,7 +493,7 @@ async def extract_all_urls_and_databases(question_text: str) -> dict:
             json_start = response_text.find("```") + 3
             json_end = response_text.rfind("```")
             response_text = response_text[json_start:json_end].strip()
-        
+                
         print(f"Extracted JSON text: {response_text}")
         return json.loads(response_text)
         
