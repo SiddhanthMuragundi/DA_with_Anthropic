@@ -17,6 +17,7 @@ duckdb==1.3.2
 openpyxl==3.1.5
 sqlalchemy==2.0.36
 tabula-py==2.9.0
+pyarrow==18.1.0
 
 # Web & HTTP
 requests==2.32.4
@@ -36,10 +37,21 @@ python-multipart==0.0.20
 # Network Analysis
 networkx==3.4.2
 
+# Time Series & Advanced Stats
+statsmodels==0.14.4
+
+# Text Processing & NLP
+nltk==3.9.1
+textblob==0.18.0
+
+# High Performance Data
+polars==1.17.1
+
 # Utilities
 python-dotenv==1.1.1
 pillow==11.1.0
+tqdm==4.67.1
 
-# Optional: Jupyter Environment (uncomment if needed)
-# jupyter==1.1.1
-# jupyterlab==4.3.3
+# Development & Debugging
+jupyter==1.1.1
+jupyterlab==4.3.3
