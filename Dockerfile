@@ -1,4 +1,4 @@
-# Use a stable Python version for better compatibility
+# Use stable Python 3.11 slim for compatibility
 FROM python:3.11-slim
 
 # Environment variables
@@ -12,7 +12,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies needed by Playwright and your app
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg2 \
@@ -43,47 +43,45 @@ RUN apt-get update && apt-get install -y \
     libxrandr2 \
     libgbm1 \
     libxss1 \
-    # Note: libgconf-2-4 removed in new Debian; can be omitted if not needed
     && rm -rf /var/lib/apt/lists/*
 
-# Create necessary directories with proper permissions
-RUN mkdir -p /tmp/.duckdb /app/prompts /app/logs /app/uploads /ms-playwright && \
-    chmod -R 755 /app && \
-    chmod -R 777 /tmp && \
-    chmod -R 777 /ms-playwright
+# Prepare directories with proper permissions
+RUN mkdir -p /tmp/.duckdb /ms-playwright /app/prompts /app/logs /app/uploads && \
+    chmod 777 /tmp /ms-playwright && \
+    chmod -R 755 /app
 
-# Copy requirements first for caching
+# Copy requirements for Docker cache optimization
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
+# Upgrade pip tools and install dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright and Chromium
-RUN pip install playwright && \
-    playwright install chromium && \
-    playwright install-deps
+# Install Playwright and its browsers and dependencies in one step
+RUN pip install --no-cache-dir playwright && \
+    python -m playwright install --with-deps chromium
 
-# Copy the full application
+# Copy all application source code
 COPY . .
 
-# Create default prompt files if missing
-RUN touch /app/prompts/task_breaker.txt && \
+# Create default prompt file if not present
+RUN mkdir -p /app/prompts && \
+    touch /app/prompts/task_breaker.txt && \
     echo "Default task breaker instructions" > /app/prompts/task_breaker.txt
 
-# Create a non-root user for security
+# Add a non-root user and set permissions
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app /tmp/.duckdb /ms-playwright
 
-# Switch to non-root
+# Switch to non-root user for runtime security
 USER appuser
 
-# Expose application port
+# Expose port (Railway uses PORT environment variable)
 EXPOSE 7860
 
-# Health check endpoint
+# Healthcheck to verify the app is running
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:7860/health || exit 1
 
-# Start the app
+# Command to run your app
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "1"]
