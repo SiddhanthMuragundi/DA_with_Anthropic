@@ -1,45 +1,45 @@
 # Core Data Analysis
-pandas==2.3.1
-numpy==2.2.6
-scipy==1.15.1
+pandas
+numpy
+scipy
 
 # Visualization
-matplotlib==3.10.5
-seaborn==0.13.2
-plotly==5.24.1
-kaleido==0.2.1
+matplotlib
+seaborn
+plotly
+kaleido
 
 # Machine Learning
-scikit-learn==1.6.0
+scikit-learn
 
 # Database & File Handling
-duckdb==1.3.2
-openpyxl==3.1.5
-sqlalchemy==2.0.36
-tabula-py==2.9.0
+duckdb
+openpyxl
+sqlalchemy
+tabula-py
 
 # Web & HTTP
-requests==2.32.4
-httpx==0.28.1
-beautifulsoup4==4.13.4
-lxml==6.0.0
+requests
+httpx
+beautifulsoup4
+lxml
 
 # Web Scraping & Automation
-playwright==1.54.0
-playwright-stealth==2.0.0
+playwright
+playwright-stealth
 
 # API & Web Framework
-fastapi==0.116.1
-uvicorn==0.35.0
-python-multipart==0.0.20
+fastapi
+uvicorn
+python-multipart
 
 # Network Analysis
-networkx==3.4.2
+networkx
 
 # Utilities
-python-dotenv==1.1.1
-pillow==11.1.0
+python-dotenv
+pillow
 
-# Optional: Jupyter Environment (uncomment if needed)
-jupyter==1.1.1
-jupyterlab==4.3.3
+# Optional: Jupyter Environment
+jupyter
+jupyterlab
